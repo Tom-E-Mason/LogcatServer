@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 class LogcatService : Service() {
 
     private val server = Server()
-    private val advertiser = Advertiser(Build.ID)
+    private val advertiser = Advertiser(Build.MODEL)
     private val _started = MutableStateFlow(false)
 
     override fun onStartCommand(

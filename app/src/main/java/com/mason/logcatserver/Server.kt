@@ -1,6 +1,7 @@
 package com.mason.logcatserver
 
 import android.util.Log
+import java.io.IOException
 import java.net.ServerSocket
 import java.net.Socket
 import java.net.SocketException
@@ -13,6 +14,7 @@ class Server {
     private var acceptThread: Thread? = null
     private var serverThread: Thread? = null
     private val socketQueue = ArrayBlockingQueue<Socket>(16)
+    private var logcat: Process? = null
 
     fun start() {
         Log.i(TAG, "start")
@@ -48,17 +50,35 @@ class Server {
 
     private fun runServer() {
 
-        val logcat = Runtime.getRuntime().exec("logcat")
-        val reader = logcat.inputStream.bufferedReader()
+        logcat = Runtime.getRuntime().exec("logcat")
+        val input = logcat!!.inputStream
 
         val sockets = mutableListOf<Socket>()
         val socketsToRemove = mutableListOf<Socket>()
+
+        val buffer = ByteArray(MAX_LOG_LINE)
+
         while (true) {
-            val line = reader.readLine() + '\n'
+            val read = try {
+                input.read(buffer)
+            } catch (e: IOException) {
+                Log.e(TAG, "Error reading from input.", e)
+                break
+            }
+
+            var lastNewLine = 0
+            for (i in 0 until read) {
+                if (buffer[i] == '\n'.code.toByte()) {
+                    lastNewLine = i
+                }
+            }
+
+            val limit = lastNewLine + 1
+
             drainSocketQueue(sockets)
             for (socket in sockets) {
                 try {
-                    socket.getOutputStream().write(line.toByteArray())
+                    socket.getOutputStream().write(buffer, 0, limit)
                 } catch (e: SocketException) {
                     Log.e(TAG, "Exception writing to socket.", e)
                     socket.close()
@@ -66,8 +86,18 @@ class Server {
                 }
             }
 
+            System.arraycopy(buffer, limit, buffer, 0, buffer.size - limit)
+
             sockets.removeAll(socketsToRemove)
             socketsToRemove.clear()
+        }
+
+        sockets.forEach {
+            try {
+                it.close()
+            } catch (e: SocketException) {
+                Log.e(TAG, "Failed to close $it.", e)
+            }
         }
     }
 
@@ -84,10 +114,14 @@ class Server {
         Log.i(TAG, "stop")
         serverSocket!!.close()
         acceptThread!!.join()
+
+        logcat!!.destroy()
+        serverThread!!.join()
     }
 
     companion object {
         private const val TAG = "Server"
         private const val PORT = 6001
+        private const val MAX_LOG_LINE = 4096
     }
 }

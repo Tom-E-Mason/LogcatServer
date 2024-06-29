@@ -62,6 +62,7 @@ class Server {
         thread { runLogcat() }
 
         val sockets = mutableListOf<Socket>()
+        val socketsToRemove = mutableListOf<Socket>()
         while (true) {
             val line = logQueue.take() + '\n'
             drainSocketQueue(sockets)
@@ -71,8 +72,12 @@ class Server {
                 } catch (e: SocketException) {
                     Log.e(TAG, "Exception writing to socket.", e)
                     socket.close()
+                    socketsToRemove += socket
                 }
             }
+
+            sockets.removeAll(socketsToRemove)
+            socketsToRemove.clear()
         }
     }
 

@@ -1,11 +1,9 @@
 package com.mason.logcatserver
 
-import android.os.SystemClock
 import android.util.Log
 import java.net.ServerSocket
 import java.net.Socket
 import java.net.SocketException
-import java.time.LocalDateTime
 import java.util.concurrent.ArrayBlockingQueue
 import kotlin.concurrent.thread
 
@@ -13,20 +11,21 @@ class Server {
 
     private var serverSocket: ServerSocket? = null
     private var acceptThread: Thread? = null
-    private var logcatThread: Thread? = null
+    private var serverThread: Thread? = null
     private val socketQueue = ArrayBlockingQueue<Socket>(16)
+    private val logQueue = ArrayBlockingQueue<String>(2048)
 
     fun start() {
         Log.i(TAG, "start")
         acceptThread = thread {
-            runServer()
+            runAcceptThread()
         }
-        logcatThread = thread {
-            runLogcat()
+        serverThread = thread {
+            runServer()
         }
     }
 
-    private fun runServer() {
+    private fun runAcceptThread() {
 
         serverSocket = ServerSocket(PORT)
         if (!serverSocket!!.isBound) {
@@ -49,16 +48,23 @@ class Server {
     }
 
     private fun runLogcat() {
-
         val logcat = Runtime.getRuntime().exec("logcat")
         val reader = logcat.inputStream.bufferedReader()
+        var line = reader.readLine()
+        while (line != null) {
+            logQueue.put(line)
+            line = reader.readLine()
+        }
+    }
+
+    private fun runServer() {
+
+        thread { runLogcat() }
 
         val sockets = mutableListOf<Socket>()
         while (true) {
+            val line = logQueue.take() + '\n'
             drainSocketQueue(sockets)
-
-            val line = reader.readLine() + '\n'
-
             for (socket in sockets) {
                 try {
                     socket.getOutputStream().write(line.toByteArray())
@@ -67,8 +73,6 @@ class Server {
                     socket.close()
                 }
             }
-
-            SystemClock.sleep(1000)
         }
     }
 

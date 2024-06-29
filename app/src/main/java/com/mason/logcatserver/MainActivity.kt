@@ -42,7 +42,6 @@ class MainActivity : ComponentActivity() {
         override fun onServiceDisconnected(name: ComponentName?) {
             client.value = null
         }
-
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -73,14 +72,20 @@ class MainActivity : ComponentActivity() {
                                     }
                                 },
                             ) {
-                                Text(if (started) "Stop" else "Start")
+                                Text(
+                                    text = if (started) "Stop" else "Start",
+                                    style = MaterialTheme.typography.headlineMedium,
+                                )
                             }
                         } else {
                             Button(
                                 onClick = {},
                                 enabled = false,
                             ) {
-                                Text("Service not bound.")
+                                Text(
+                                    text = "Service not bound.",
+                                    style = MaterialTheme.typography.headlineMedium,
+                                )
                             }
                         }
                     }

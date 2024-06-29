@@ -13,7 +13,6 @@ class Server {
     private var acceptThread: Thread? = null
     private var serverThread: Thread? = null
     private val socketQueue = ArrayBlockingQueue<Socket>(16)
-    private val logQueue = ArrayBlockingQueue<String>(2048)
 
     fun start() {
         Log.i(TAG, "start")
@@ -47,24 +46,15 @@ class Server {
         }
     }
 
-    private fun runLogcat() {
-        val logcat = Runtime.getRuntime().exec("logcat")
-        val reader = logcat.inputStream.bufferedReader()
-        var line = reader.readLine()
-        while (line != null) {
-            logQueue.put(line)
-            line = reader.readLine()
-        }
-    }
-
     private fun runServer() {
 
-        thread { runLogcat() }
+        val logcat = Runtime.getRuntime().exec("logcat")
+        val reader = logcat.inputStream.bufferedReader()
 
         val sockets = mutableListOf<Socket>()
         val socketsToRemove = mutableListOf<Socket>()
         while (true) {
-            val line = logQueue.take() + '\n'
+            val line = reader.readLine() + '\n'
             drainSocketQueue(sockets)
             for (socket in sockets) {
                 try {
